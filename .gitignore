@@ -1,1 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
 venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+
+# Data files
+*.pkl
+*.csv
+*.log
+
+# Environment variables
+.env
