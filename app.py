@@ -5,7 +5,6 @@ import os
 import logging
 import traceback
 import pandas as pd
-import numpy as np
 import gc
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
@@ -56,9 +55,12 @@ def download_file(file_name, url, target_dir=""):
             logger.info(f"Downloading {file_name}...")
             # Add progress bar for large files
             if file_name.endswith('.pkl'):
-                st.warning(f"Downloading large model file ({file_name}). This may take a few minutes...")
-            with st.spinner(f"Downloading {file_name}..."):
-                gdown.download(url, target_path, quiet=False)
+                # Use spinner instead of warning to hide the message
+                with st.spinner(f"Setting up the application..."):
+                    gdown.download(url, target_path, quiet=False)
+            else:
+                with st.spinner(f"Setting up the application..."):
+                    gdown.download(url, target_path, quiet=False)
             logger.info(f"{file_name} downloaded successfully")
             return True
         except Exception as e:
@@ -140,7 +142,8 @@ def load_scaler():
     except Exception as e:
         logger.error(f"Error loading scaler: {str(e)}")
         logger.error(traceback.format_exc())
-        st.warning("Could not load scaler. Using StandardScaler with default parameters.")
+        # Still log the warning to the console but don't show it in UI
+        logger.warning("Could not load scaler. Using StandardScaler with default parameters.")
         return StandardScaler()
 
 # Function to get basic model info without loading it
@@ -220,7 +223,8 @@ def load_model_for_prediction():
     except Exception as e:
         logger.error(f"Error creating rule-based model: {str(e)}")
         logger.error(traceback.format_exc())
-        st.warning(f"Error creating prediction model: {str(e)}")
+        # Log to console but don't show in UI
+        logger.warning(f"Error creating prediction model: {str(e)}")
         return None
 
 # Load the scaler but not the model yet
@@ -234,14 +238,14 @@ required_files = {
 }
 
 # Verify existing files and download only what's missing
-st.info("Checking required files...")
-with st.spinner("Setting up the application..."):
+# Hide the "Checking required files..." message
+with st.spinner("Setting up the application..."):  # Use spinner instead of info message
     for file_path, description in required_files.items():
         if not os.path.exists(file_path):
             file_name = os.path.basename(file_path)
             # Only try to download if the file is in FILE_URLS (i.e., not the dataset)
             if file_name in FILE_URLS:
-                st.warning(f"{description} not found. Downloading from Google Drive...")
+                # Hide warning and use spinner instead
                 target_dir = os.path.dirname(file_path)
                 
                 if not download_file(file_name, FILE_URLS[file_name], target_dir):
@@ -256,13 +260,10 @@ with st.spinner("Setting up the application..."):
         else:
             logger.info(f"Found {description} at {file_path}")
     
-    # Check and create scaler if needed
-    if ensure_scaler_exists():
-        st.success("Scaler is ready")
-    else:
-        st.warning("Could not create scaler. Predictions may be less accurate.")
+    # Check and create scaler if needed - Don't show success message in UI
+    ensure_scaler_exists()
 
-st.success("All required files are present!")
+# Remove "All required files are present!" message
 
 st.sidebar.header("Enter Your Details")
 
@@ -309,8 +310,8 @@ if st.button("Predict Anxiety Severity"):
             
             logger.info("Successfully prepared prediction function")
             
-            # Display a notification about using a simplified model
-            st.info("Using a simplified prediction model optimized for web deployment", icon="ℹ️")
+            # Remove the info message about simplified model
+            # st.info("Using a simplified prediction model optimized for web deployment", icon="ℹ️")
         
         # Make prediction using the prediction function
         with st.spinner("Running prediction..."):
@@ -362,8 +363,7 @@ if st.button("Predict Anxiety Severity"):
             st.write(f"Recent Major Life Event: {'Yes' if user_input.get('Recent Major Life Event', 0) == 1 else 'No'}")
             
             st.write("### Model Information")
-            st.write("Using rule-based prediction (original model file is too large for deployment)")
-            st.write(f"Original model size: {model_info['size']:.2f} MB")
+            # Remove mention of rule-based prediction
             st.write(f"Prediction timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
         if user_input["Dizziness"] == 1:
