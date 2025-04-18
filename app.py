@@ -1,63 +1,61 @@
 import streamlit as st
+import gdown
 import joblib
 import os
-import sys
-from pathlib import Path
+import logging
 import traceback
+from datetime import datetime
+from cls_prediction import predict_anxiety
+from cls_recommendation import get_recommendations
 
-# Add the current directory to the Python path
-sys.path.append(str(Path(__file__).parent))
-
-try:
-    from cls_prediction import predict_anxiety
-    from cls_recommendation import get_recommendations
-except ImportError as e:
-    st.error(f"Error importing modules: {str(e)}")
-    st.error(f"Python path: {sys.path}")
-    st.error(f"Current directory: {os.getcwd()}")
-    st.error(f"Directory contents: {os.listdir('.')}")
-    st.stop()
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app_debug.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 st.title("Anxiety Severity Prediction and Lifestyle Recommendations")
 
-# Define paths relative to the app directory
-BASE_DIR = Path(__file__).parent
-MODEL_PATH = BASE_DIR / "cls_rf.pkl"
-DATASET_PATH = BASE_DIR / "cls_preprocessed_dataset.csv"
+# Debug information section
+with st.expander("Debug Information", expanded=False):
+    st.write("### System Information")
+    st.write(f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    st.write(f"Python version: {os.sys.version}")
+    st.write(f"Working directory: {os.getcwd()}")
+    st.write(f"Files in directory: {os.listdir('.')}")
 
-# Debug information
-st.sidebar.write("Debug Info:")
-st.sidebar.write(f"Base Directory: {BASE_DIR}")
-st.sidebar.write(f"Model Path: {MODEL_PATH}")
-st.sidebar.write(f"Dataset Path: {DATASET_PATH}")
-st.sidebar.write(f"Directory Contents: {os.listdir(BASE_DIR)}")
+model_path = "model.pkl"
 
-# Check if required files exist
-if not MODEL_PATH.exists():
-    st.error(f"Model file not found at {MODEL_PATH}")
-    st.error(f"Current directory contents: {os.listdir(BASE_DIR)}")
-    st.stop()
-
-if not DATASET_PATH.exists():
-    st.error(f"Dataset file not found at {DATASET_PATH}")
-    st.error(f"Current directory contents: {os.listdir(BASE_DIR)}")
+try:
+    if not os.path.exists(model_path):
+        logger.info(f"Model file not found at {model_path}. Downloading from Google Drive...")
+        url = "https://drive.google.com/uc?id=1_gCsceiu4m4VjxQhTci7Y534LVebKd_W"
+        gdown.download(url, model_path, quiet=False)
+        logger.info("Model downloaded successfully")
+except Exception as e:
+    logger.error(f"Error downloading model: {str(e)}")
+    st.error(f"Error downloading model: {str(e)}")
     st.stop()
 
 @st.cache_resource
 def load_model():
     try:
-        return joblib.load(str(MODEL_PATH))
+        logger.info("Loading model from file")
+        model = joblib.load(model_path)
+        logger.info("Model loaded successfully")
+        return model
     except Exception as e:
+        logger.error(f"Error loading model: {str(e)}")
+        logger.error(traceback.format_exc())
         st.error(f"Error loading model: {str(e)}")
-        st.error(f"Traceback: {traceback.format_exc()}")
         st.stop()
 
-try:
-    model = load_model()
-except Exception as e:
-    st.error(f"Error initializing model: {str(e)}")
-    st.error(f"Traceback: {traceback.format_exc()}")
-    st.stop()
+model = load_model()
 
 st.sidebar.header("Enter Your Details")
 
@@ -88,8 +86,14 @@ user_input = {
 
 if st.button("Predict Anxiety Severity"):
     try:
-        predicted_class = predict_anxiety(user_input)  
+        logger.info("Starting prediction process")
+        logger.debug(f"User input: {user_input}")
+        
+        predicted_class = predict_anxiety(user_input)
+        logger.info(f"Prediction completed. Result: {predicted_class}")
+        
         recommendations = get_recommendations(predicted_class, user_input)
+        logger.info("Recommendations generated successfully")
 
         st.subheader("Predicted Anxiety Severity:")
         st.write(f"Severity: {predicted_class} (Scale: 1 to 10)")
@@ -99,6 +103,14 @@ if st.button("Predict Anxiety Severity"):
             st.write(recommendations[0])
             for rec in recommendations[1:]:
                 st.write(f"- {rec}")
+
+        # Debug information for the prediction
+        with st.expander("Prediction Details", expanded=False):
+            st.write("### Input Data")
+            st.json(user_input)
+            st.write("### Model Information")
+            st.write(f"Model type: {type(model).__name__}")
+            st.write(f"Prediction timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
         if user_input["Dizziness"] == 1:
             st.subheader("Additional Grounding Technique: 5-4-3-2-1 Method")
@@ -133,4 +145,7 @@ if st.button("Predict Anxiety Severity"):
                 </div>
                 """, unsafe_allow_html=True)
     except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
+        logger.error(f"Error during prediction: {str(e)}")
+        logger.error(traceback.format_exc())
+        st.error("An error occurred during prediction. Please try again.")
+        st.error(f"Error details: {str(e)}")

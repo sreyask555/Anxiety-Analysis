@@ -35,13 +35,13 @@ def get_recommendations(severity, user_input):
     if user_input["Sleep Hours"] < 6:
         recommendations.append("Try to get at least 6 hours of quality sleep daily. Sleep is essential for mental wellness.")
 
-    if user_input["Stress Level (1-10)"] >= 6:
-        recommendations.append("Your stress is relatively high. You can try meditation to reduce your stress level and try taking a break from stressful environment.")
+    if user_input["Stress Level (1-10)"]>= 6:
+        recommendations.append("Your stress to relativaly high.You can try meditation to reduce yout stress level and try taking a break from stressfull environment.")
 
     if user_input["Caffeine Intake (mg/day)"] > 400:
-        recommendations.append("Too much caffeine can increase anxiety. Try reducing it to a maximum of 400 mg per day, which is considered a safe amount for daily consumption.")
+        recommendations.append("Too much caffeine can increase anxiety. Try reducing it to a maximum of 400 mg per day, which is considered a safe amount for daily consumption.")
 
-    if user_input["Dizziness"] == 1:
+    if user_input["Dizziness"]==1:
         recommendations.append("If you feel dizzy when stressed, try grounding techniques like focusing on your surroundings or using the 5-4-3-2-1 method. Staying well-hydrated also helps maintain blood pressure and reduce dizziness.")
             
     return [custom_msg] + recommendations
