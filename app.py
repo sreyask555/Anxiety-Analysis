@@ -331,36 +331,11 @@ if st.button("Predict Anxiety Severity"):
             logger.info("Recommendations generated successfully")
 
         st.subheader("Predicted Anxiety Severity:")
-        
-        # Create a more visually striking display of the prediction
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            st.markdown(f"<h1 style='font-size:48px; color:{'red' if predicted_class > 7 else 'orange' if predicted_class > 4 else 'green'};'>{predicted_class}</h1>", unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"<div style='margin-top:20px;'><b>Scale:</b> 1 (Minimal) to 10 (Severe)</div>", unsafe_allow_html=True)
-            
-            # Add a visual gauge
-            severity_gauge = """
-            <style>
-            .gauge-container {{
-                width: 100%;
-                height: 20px;
-                background-color: #f0f0f0;
-                border-radius: 10px;
-                margin-top: 10px;
-            }}
-            .gauge-fill {{
-                height: 100%;
-                width: {0}%;
-                background: linear-gradient(90deg, green, yellow, orange, red);
-                border-radius: 10px;
-            }}
-            </style>
-            <div class="gauge-container">
-                <div class="gauge-fill"></div>
-            </div>
-            """.format(predicted_class * 10)
-            st.markdown(severity_gauge, unsafe_allow_html=True)
+        # Use simple text display instead of the colored visualization
+        st.write(f"**Severity:** {predicted_class} (Scale: 1 to 10)")
+        st.write(f"- 1-3: Minimal anxiety")
+        st.write(f"- 4-6: Moderate anxiety")
+        st.write(f"- 7-10: Severe anxiety")
 
         st.subheader("Recommended Lifestyle Changes:")
         if isinstance(recommendations, dict):
