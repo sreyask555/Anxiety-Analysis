@@ -252,12 +252,11 @@ def create_dummy_model():
 # Modified function to load model only when needed
 def load_model_for_prediction():
     try:
-        with st.spinner("Loading prediction model... (this may take a moment for large models)"):
-            logger.info(f"Loading Random Forest model from {MODEL_PATH}")
-            # Use memory mapping to efficiently load large models
-            model = joblib.load(MODEL_PATH, mmap_mode='r')
-            logger.info("Random Forest model loaded successfully")
-            return model
+        logger.info(f"Loading Random Forest model from {MODEL_PATH}")
+        # Use memory mapping to efficiently load large models
+        model = joblib.load(MODEL_PATH, mmap_mode='r')
+        logger.info("Random Forest model loaded successfully")
+        return model
     except Exception as e:
         logger.error(f"Error loading Random Forest model: {str(e)}")
         logger.error(traceback.format_exc())
