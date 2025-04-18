@@ -1,5 +1,4 @@
 import streamlit as st
-import gdown
 import joblib
 import os
 import sys
@@ -65,47 +64,50 @@ user_input = {
 }
 
 if st.button("Predict Anxiety Severity"):
-    predicted_class = predict_anxiety(user_input)  
-    recommendations = get_recommendations(predicted_class, user_input)
+    try:
+        predicted_class = predict_anxiety(user_input)  
+        recommendations = get_recommendations(predicted_class, user_input)
 
-    st.subheader("Predicted Anxiety Severity:")
-    st.write(f"Severity: {predicted_class} (Scale: 1 to 10)")
+        st.subheader("Predicted Anxiety Severity:")
+        st.write(f"Severity: {predicted_class} (Scale: 1 to 10)")
 
-    st.subheader("Recommended Lifestyle Changes:")
-    if recommendations:
-        st.write(recommendations[0])
-        for rec in recommendations[1:]:
-            st.write(f"- {rec}")
+        st.subheader("Recommended Lifestyle Changes:")
+        if recommendations:
+            st.write(recommendations[0])
+            for rec in recommendations[1:]:
+                st.write(f"- {rec}")
 
-    if user_input["Dizziness"] == 1:
-        st.subheader("Additional Grounding Technique: 5-4-3-2-1 Method")
-        st.markdown(
-            """
-            <style>
-                .cute-box {
-                    background-color: #f0f8ff;
-                    border-radius: 10px;
-                    padding: 20px;
-                    border: 2px solid #b0e0e6;
-                    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-                    font-family: 'Arial', sans-serif;
-                    font-size: 16px;
-                    color: #333;
-                }
-                .cute-box h4 {
-                    color: #4682b4;
-                }
-            </style>
-            <div class="cute-box">
-                <h4>The 5-4-3-2-1 Method:</h4>
-                <p>This grounding technique helps you stay present by focusing on your senses. Here's how it works:</p>
-                <ul>
-                    <li><b> 5 things you can see:</b> Look around and identify five things you can see.</li>
-                    <li><b> 4 things you can touch:</b> Notice four things you can physically touch, like the texture of the chair or the floor beneath your feet.</li>
-                    <li><b> 3 things you can hear:</b> Pay attention to three sounds around you, such as the hum of the air conditioning or birds chirping.</li>
-                    <li><b> 2 things you can smell:</b> Take a deep breath and identify two things you can smell.</li>
-                    <li><b> 1 thing you can taste:</b> Focus on one taste in your mouth, or simply notice the taste of your own breath.</li>
-                </ul>
-                <p>This method helps calm your mind by shifting focus from overwhelming thoughts to tangible sensations, grounding you in the present moment.</p>
-            </div>
-            """, unsafe_allow_html=True)
+        if user_input["Dizziness"] == 1:
+            st.subheader("Additional Grounding Technique: 5-4-3-2-1 Method")
+            st.markdown(
+                """
+                <style>
+                    .cute-box {
+                        background-color: #f0f8ff;
+                        border-radius: 10px;
+                        padding: 20px;
+                        border: 2px solid #b0e0e6;
+                        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+                        font-family: 'Arial', sans-serif;
+                        font-size: 16px;
+                        color: #333;
+                    }
+                    .cute-box h4 {
+                        color: #4682b4;
+                    }
+                </style>
+                <div class="cute-box">
+                    <h4>The 5-4-3-2-1 Method:</h4>
+                    <p>This grounding technique helps you stay present by focusing on your senses. Here's how it works:</p>
+                    <ul>
+                        <li><b> 5 things you can see:</b> Look around and identify five things you can see.</li>
+                        <li><b> 4 things you can touch:</b> Notice four things you can physically touch, like the texture of the chair or the floor beneath your feet.</li>
+                        <li><b> 3 things you can hear:</b> Pay attention to three sounds around you, such as the hum of the air conditioning or birds chirping.</li>
+                        <li><b> 2 things you can smell:</b> Take a deep breath and identify two things you can smell.</li>
+                        <li><b> 1 thing you can taste:</b> Focus on one taste in your mouth, or simply notice the taste of your own breath.</li>
+                    </ul>
+                    <p>This method helps calm your mind by shifting focus from overwhelming thoughts to tangible sensations, grounding you in the present moment.</p>
+                </div>
+                """, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
