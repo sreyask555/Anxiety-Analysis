@@ -250,6 +250,7 @@ def create_dummy_model():
         return None
 
 # Modified function to load model only when needed
+@st.cache_resource(show_spinner=False)
 def load_model_for_prediction():
     try:
         logger.info(f"Loading Random Forest model from {MODEL_PATH}")
@@ -277,6 +278,10 @@ if st.button("Predict Anxiety Severity"):
         
         # Only load the model when the button is clicked
         with st.spinner("Loading model (this may take a moment for large models)..."):
+            # Force garbage collection before loading model
+            gc.collect()
+            
+            # Get the cached model (or load it if first time)
             model = load_model_for_prediction()
             if model is None:
                 st.error("Could not load any prediction model. Please try again later.")
@@ -291,9 +296,6 @@ if st.button("Predict Anxiety Severity"):
         
         # Make prediction using the loaded model
         with st.spinner("Running prediction..."):
-            # Force garbage collection before prediction
-            gc.collect()
-            
             try:
                 # Run prediction with timeout protection
                 predicted_class = predict_anxiety(user_input, scaler, model)
@@ -318,8 +320,8 @@ if st.button("Predict Anxiety Severity"):
                     st.error("Prediction failed. Please try again later.")
                     st.stop()
         
-        # Clean up memory after prediction
-        del model
+        # Don't delete the model since it's now cached by Streamlit
+        # Just force garbage collection
         gc.collect()
         
         with st.spinner("Generating recommendations..."):
