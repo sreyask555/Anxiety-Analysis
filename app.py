@@ -2,20 +2,38 @@ import streamlit as st
 import gdown
 import joblib
 import os
+import sys
+from pathlib import Path
+
+# Add the current directory to the Python path
+sys.path.append(str(Path(__file__).parent))
+
 from cls_prediction import predict_anxiety
 from cls_recommendation import get_recommendations
 
 st.title("Anxiety Severity Prediction and Lifestyle Recommendations")
 
-model_path = "model.pkl"
+# Define paths relative to the app directory
+BASE_DIR = Path(__file__).parent
+MODEL_PATH = BASE_DIR / "cls_rf.pkl"  # Updated to match actual file name
+DATASET_PATH = BASE_DIR / "cls_preprocessed_dataset.csv"  # Updated to match actual file name
 
-if not os.path.exists(model_path):
-    url = "https://drive.google.com/uc?id=1_gCsceiu4m4VjxQhTci7Y534LVebKd_W"
-    gdown.download(url, model_path, quiet=False)
+# Check if required files exist
+if not MODEL_PATH.exists():
+    st.error("Model file (cls_rf.pkl) not found. Please ensure it exists in the root directory.")
+    st.stop()
+
+if not DATASET_PATH.exists():
+    st.error("Dataset file (cls_preprocessed_dataset.csv) not found. Please ensure it exists in the root directory.")
+    st.stop()
 
 @st.cache_resource
 def load_model():
-    return joblib.load(model_path)
+    try:
+        return joblib.load(str(MODEL_PATH))
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        st.stop()
 
 model = load_model()
 
@@ -80,7 +98,7 @@ if st.button("Predict Anxiety Severity"):
             </style>
             <div class="cute-box">
                 <h4>The 5-4-3-2-1 Method:</h4>
-                <p>This grounding technique helps you stay present by focusing on your senses. Here’s how it works:</p>
+                <p>This grounding technique helps you stay present by focusing on your senses. Here's how it works:</p>
                 <ul>
                     <li><b> 5 things you can see:</b> Look around and identify five things you can see.</li>
                     <li><b> 4 things you can touch:</b> Notice four things you can physically touch, like the texture of the chair or the floor beneath your feet.</li>
