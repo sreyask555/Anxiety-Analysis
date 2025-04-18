@@ -3,27 +3,44 @@ import joblib
 import os
 import sys
 from pathlib import Path
+import traceback
 
 # Add the current directory to the Python path
 sys.path.append(str(Path(__file__).parent))
 
-from cls_prediction import predict_anxiety
-from cls_recommendation import get_recommendations
+try:
+    from cls_prediction import predict_anxiety
+    from cls_recommendation import get_recommendations
+except ImportError as e:
+    st.error(f"Error importing modules: {str(e)}")
+    st.error(f"Python path: {sys.path}")
+    st.error(f"Current directory: {os.getcwd()}")
+    st.error(f"Directory contents: {os.listdir('.')}")
+    st.stop()
 
 st.title("Anxiety Severity Prediction and Lifestyle Recommendations")
 
 # Define paths relative to the app directory
 BASE_DIR = Path(__file__).parent
-MODEL_PATH = BASE_DIR / "cls_rf.pkl"  # Updated to match actual file name
-DATASET_PATH = BASE_DIR / "cls_preprocessed_dataset.csv"  # Updated to match actual file name
+MODEL_PATH = BASE_DIR / "cls_rf.pkl"
+DATASET_PATH = BASE_DIR / "cls_preprocessed_dataset.csv"
+
+# Debug information
+st.sidebar.write("Debug Info:")
+st.sidebar.write(f"Base Directory: {BASE_DIR}")
+st.sidebar.write(f"Model Path: {MODEL_PATH}")
+st.sidebar.write(f"Dataset Path: {DATASET_PATH}")
+st.sidebar.write(f"Directory Contents: {os.listdir(BASE_DIR)}")
 
 # Check if required files exist
 if not MODEL_PATH.exists():
-    st.error("Model file (cls_rf.pkl) not found. Please ensure it exists in the root directory.")
+    st.error(f"Model file not found at {MODEL_PATH}")
+    st.error(f"Current directory contents: {os.listdir(BASE_DIR)}")
     st.stop()
 
 if not DATASET_PATH.exists():
-    st.error("Dataset file (cls_preprocessed_dataset.csv) not found. Please ensure it exists in the root directory.")
+    st.error(f"Dataset file not found at {DATASET_PATH}")
+    st.error(f"Current directory contents: {os.listdir(BASE_DIR)}")
     st.stop()
 
 @st.cache_resource
@@ -32,9 +49,15 @@ def load_model():
         return joblib.load(str(MODEL_PATH))
     except Exception as e:
         st.error(f"Error loading model: {str(e)}")
+        st.error(f"Traceback: {traceback.format_exc()}")
         st.stop()
 
-model = load_model()
+try:
+    model = load_model()
+except Exception as e:
+    st.error(f"Error initializing model: {str(e)}")
+    st.error(f"Traceback: {traceback.format_exc()}")
+    st.stop()
 
 st.sidebar.header("Enter Your Details")
 
