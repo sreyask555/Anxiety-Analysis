@@ -69,11 +69,12 @@ def predict_anxiety(user_input, scaler=None, model=None):
     # If model is not provided, try to load it
     if model is None:
         try:
-            model = joblib.load("models/cls_rf.pkl")
+            # Use memory mapping to efficiently load large models
+            model = joblib.load("models/cls_rf.pkl", mmap_mode='r')
         except:
             # Try the older filename if the new one fails
             try:
-                model = joblib.load("models/rf_classifier_model.pkl")
+                model = joblib.load("models/rf_classifier_model.pkl", mmap_mode='r')
             except Exception as e:
                 print(f"Error loading model: {str(e)}")
                 return 5  # Return a middle value as fallback
