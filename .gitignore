@@ -14,8 +14,8 @@ ENV/
 
 # Data files
 *.pkl
-*.csv
 *.log
+!preprocessed_data/cls_preprocessed_dataset.csv  # Allow this specific CSV file
 
 # Environment variables
 .env

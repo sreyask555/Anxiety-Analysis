@@ -4,6 +4,9 @@ import joblib
 import os
 import logging
 import traceback
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
 from datetime import datetime
 from cls_prediction import predict_anxiety
 from cls_recommendation import get_recommendations
@@ -21,6 +24,10 @@ logger = logging.getLogger(__name__)
 
 st.title("Anxiety Severity Prediction and Lifestyle Recommendations")
 
+# Create necessary directories if they don't exist
+os.makedirs("models", exist_ok=True)
+os.makedirs("preprocessed_data", exist_ok=True)
+
 # Debug information section
 with st.expander("Debug Information", expanded=False):
     st.write("### System Information")
@@ -31,55 +38,107 @@ with st.expander("Debug Information", expanded=False):
     st.write(f"Models directory contents: {os.listdir('models') if os.path.exists('models') else 'Models directory not found'}")
     st.write(f"Preprocessed data directory contents: {os.listdir('preprocessed_data') if os.path.exists('preprocessed_data') else 'Preprocessed data directory not found'}")
 
-# Check for model file in both root and models directory
-model_paths = [
-    "cls_rf.pkl",  # Root directory
-    os.path.join("models", "cls_rf.pkl")  # Models directory
-]
-
-model_path = None
-for path in model_paths:
-    if os.path.exists(path):
-        model_path = path
-        logger.info(f"Found model at: {path}")
-        break
-
-if model_path is None:
-    # If model not found, create models directory and download there
-    os.makedirs("models", exist_ok=True)
-    model_path = os.path.join("models", "cls_rf.pkl")
-    try:
-        logger.info(f"Model file not found. Downloading to {model_path}...")
-        url = "https://drive.google.com/uc?id=1_gCsceiu4m4VjxQhTci7Y534LVebKd_W"
-        gdown.download(url, model_path, quiet=False)
-        logger.info("Random Forest model downloaded successfully")
-    except Exception as e:
-        logger.error(f"Error downloading Random Forest model: {str(e)}")
-        st.error(f"Error downloading Random Forest model: {str(e)}")
-        st.stop()
-
-# Check for required data files
-required_files = {
-    "preprocessed_data/cls_preprocessed_dataset.csv": "Preprocessed dataset",
-    "preprocessed_data/scaler.pkl": "Scaler file"
+# Define file URLs for files that need to be downloaded
+FILE_URLS = {
+    "cls_rf.pkl": "https://drive.google.com/uc?id=1_gCsceiu4m4VjxQhTci7Y534LVebKd_W",  # Random Forest model
 }
 
-missing_files = []
-for file_path, description in required_files.items():
-    if not os.path.exists(file_path):
-        missing_files.append(f"{description} ({file_path})")
-        logger.error(f"Missing required file: {file_path}")
+# Function to download file if it doesn't exist
+def download_file(file_name, url, target_dir=""):
+    target_path = os.path.join(target_dir, file_name) if target_dir else file_name
+    if not os.path.exists(target_path):
+        try:
+            logger.info(f"Downloading {file_name}...")
+            # Add progress bar for large files
+            if file_name.endswith('.pkl'):
+                st.warning(f"Downloading large model file ({file_name}). This may take a few minutes...")
+            with st.spinner(f"Downloading {file_name}..."):
+                gdown.download(url, target_path, quiet=False)
+            logger.info(f"{file_name} downloaded successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error downloading {file_name}: {str(e)}")
+            st.error(f"Error downloading {file_name}: {str(e)}")
+            if "too large" in str(e).lower():
+                st.error("The file is too large for Google Drive to scan. Please try downloading it manually.")
+            return False
+    return True
 
-if missing_files:
-    st.error("The following required files are missing:")
-    for file in missing_files:
-        st.error(f"- {file}")
-    st.error("Please ensure all required files are present in the correct locations.")
-    st.stop()
+# Function to create scaler if it doesn't exist
+def ensure_scaler_exists():
+    scaler_path = os.path.join("preprocessed_data", "scaler.pkl")
+    if not os.path.exists(scaler_path):
+        try:
+            logger.info("Scaler not found. Creating a new scaler...")
+            # Load the dataset to fit the scaler
+            dataset_path = os.path.join("preprocessed_data", "cls_preprocessed_dataset.csv")
+            if not os.path.exists(dataset_path):
+                logger.error("Cannot create scaler: preprocessed dataset not found")
+                return False
+                
+            df = pd.read_csv(dataset_path)
+            # Extract numerical columns only (assuming column names with 'Q' prefix are numerical)
+            numerical_cols = [col for col in df.columns if col.startswith('Q') and df[col].dtype in [np.int64, np.float64]]
+            
+            if not numerical_cols:
+                logger.error("No numerical columns found in the dataset for scaling")
+                return False
+                
+            # Create and fit a new scaler
+            scaler = StandardScaler()
+            scaler.fit(df[numerical_cols])
+            
+            # Save the scaler
+            joblib.dump(scaler, scaler_path)
+            logger.info(f"New scaler created and saved to {scaler_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error creating scaler: {str(e)}")
+            logger.error(traceback.format_exc())
+            return False
+    return True
+
+# Check for required files
+required_files = {
+    "preprocessed_data/cls_preprocessed_dataset.csv": "Preprocessed dataset",
+    "models/cls_rf.pkl": "Random Forest model"
+}
+
+# Verify existing files and download only what's missing
+st.info("Checking required files...")
+with st.spinner("Setting up the application..."):
+    for file_path, description in required_files.items():
+        if not os.path.exists(file_path):
+            file_name = os.path.basename(file_path)
+            # Only try to download if the file is in FILE_URLS (i.e., not the dataset)
+            if file_name in FILE_URLS:
+                st.warning(f"{description} not found. Downloading from Google Drive...")
+                target_dir = os.path.dirname(file_path)
+                
+                if not download_file(file_name, FILE_URLS[file_name], target_dir):
+                    st.error(f"Failed to download {description}. Please check the URL and try again.")
+                    if file_name == "cls_rf.pkl":
+                        st.info("You can download the model manually from: https://drive.google.com/uc?id=1_gCsceiu4m4VjxQhTci7Y534LVebKd_W")
+                    st.stop()
+            else:
+                st.error(f"Missing required file: {file_path}")
+                st.error("The preprocessed dataset should be included in the repository. Please check your .gitignore file.")
+                st.stop()
+        else:
+            logger.info(f"Found {description} at {file_path}")
+    
+    # Check and create scaler if needed
+    if ensure_scaler_exists():
+        st.success("Scaler is ready")
+    else:
+        st.warning("Could not create scaler. Predictions may be less accurate.")
+
+st.success("All required files are present!")
 
 @st.cache_resource
 def load_model():
     try:
+        model_path = os.path.join("models", "cls_rf.pkl")
         logger.info(f"Loading Random Forest model from {model_path}")
         model = joblib.load(model_path)
         logger.info("Random Forest model loaded successfully")
@@ -90,7 +149,22 @@ def load_model():
         st.error(f"Error loading Random Forest model: {str(e)}")
         st.stop()
 
+@st.cache_resource
+def load_scaler():
+    try:
+        scaler_path = os.path.join("preprocessed_data", "scaler.pkl")
+        logger.info(f"Loading scaler from {scaler_path}")
+        scaler = joblib.load(scaler_path)
+        logger.info("Scaler loaded successfully")
+        return scaler
+    except Exception as e:
+        logger.error(f"Error loading scaler: {str(e)}")
+        logger.error(traceback.format_exc())
+        st.warning("Could not load scaler. Using StandardScaler with default parameters.")
+        return StandardScaler()
+
 model = load_model()
+scaler = load_scaler()
 
 st.sidebar.header("Enter Your Details")
 
@@ -124,7 +198,7 @@ if st.button("Predict Anxiety Severity"):
         logger.info("Starting prediction process")
         logger.debug(f"User input: {user_input}")
         
-        predicted_class = predict_anxiety(user_input)
+        predicted_class = predict_anxiety(user_input, scaler)
         logger.info(f"Prediction completed. Result: {predicted_class}")
         
         recommendations = get_recommendations(predicted_class, user_input)

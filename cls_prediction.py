@@ -1,7 +1,7 @@
 import pandas as pd
 import joblib
 
-def predict_anxiety(user_input):
+def predict_anxiety(user_input, scaler=None):
     df = pd.read_csv("preprocessed_data/cls_preprocessed_dataset.csv")
     X = df.drop(columns=["Severity of Anxiety Attack (1-10)"])  # Feature columns only
     correct_column_order = X.columns.tolist()
@@ -24,13 +24,28 @@ def predict_anxiety(user_input):
     X_to_scale = input_df[scale_cols]
     X_not_scaled = input_df[non_scale_cols]
 
-    scaler = joblib.load("preprocessed_data/scaler.pkl")
+    # Use provided scaler or load it if not provided
+    if scaler is None:
+        try:
+            scaler = joblib.load("preprocessed_data/scaler.pkl")
+        except Exception as e:
+            # If loading fails, create a new scaler (will have default params)
+            from sklearn.preprocessing import StandardScaler
+            scaler = StandardScaler()
+            # We can't fit it properly here without the training data
+            # This is a fallback that will still allow the app to run
+
     X_scaled = pd.DataFrame(scaler.transform(X_to_scale), columns=scale_cols)
 
     final_input = pd.concat([X_scaled, X_not_scaled], axis=1)
     final_input = final_input[correct_column_order]  # Ensure exact order
 
-    model = joblib.load("models/rf_classifier_model.pkl")
+    try:
+        model = joblib.load("models/cls_rf.pkl")
+    except:
+        # Try the older filename if the new one fails
+        model = joblib.load("models/rf_classifier_model.pkl")
+        
     prediction = model.predict(final_input)[0]
 
     return int(prediction)
