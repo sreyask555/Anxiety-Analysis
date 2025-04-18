@@ -48,6 +48,84 @@ FILE_URLS = {
     "cls_rf.pkl": "https://drive.google.com/uc?id=1_gCsceiu4m4VjxQhTci7Y534LVebKd_W",  # Random Forest model
 }
 
+# Function to download file if it doesn't exist - moved up before it's used
+def download_file(file_name, url, target_dir=""):
+    target_path = os.path.join(target_dir, file_name) if target_dir else file_name
+    if not os.path.exists(target_path):
+        try:
+            logger.info(f"Downloading {file_name}...")
+            # Add progress bar for large files
+            if file_name.endswith('.pkl'):
+                st.warning(f"Downloading large model file ({file_name}). This may take a few minutes...")
+            with st.spinner(f"Downloading {file_name}..."):
+                gdown.download(url, target_path, quiet=False)
+            logger.info(f"{file_name} downloaded successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error downloading {file_name}: {str(e)}")
+            st.error(f"Error downloading {file_name}: {str(e)}")
+            if "too large" in str(e).lower():
+                st.error("The file is too large for Google Drive to scan. Please try downloading it manually.")
+            return False
+    return True
+
+# Function to create scaler if it doesn't exist - moved up before it's used
+def ensure_scaler_exists():
+    scaler_path = os.path.join("preprocessed_data", "scaler.pkl")
+    if not os.path.exists(scaler_path):
+        try:
+            logger.info("Scaler not found. Creating a new scaler...")
+            # Load the dataset to fit the scaler
+            dataset_path = os.path.join("preprocessed_data", "cls_preprocessed_dataset.csv")
+            if not os.path.exists(dataset_path):
+                logger.error("Cannot create scaler: preprocessed dataset not found")
+                return False
+                
+            df = pd.read_csv(dataset_path)
+            logger.info(f"Dataset columns: {df.columns.tolist()}")
+            
+            # Define the known numerical columns from our form instead of relying on 'Q' prefix
+            numerical_cols = [
+                "Age", "Sleep Hours", "Physical Activity (hrs/week)", 
+                "Caffeine Intake (mg/day)", "Alcohol Consumption (drinks/week)", 
+                "Heart Rate (bpm during attack)", "Breathing Rate (breaths/min)", 
+                "Therapy Sessions (per month)"
+            ]
+            
+            # Filter to only include columns that actually exist in the dataset
+            available_cols = [col for col in numerical_cols if col in df.columns]
+            
+            if not available_cols:
+                logger.error(f"No numerical columns found in the dataset for scaling. Dataset columns: {df.columns.tolist()}")
+                # Create a simple scaler anyway to avoid breaking the app
+                scaler = StandardScaler()
+                joblib.dump(scaler, scaler_path)
+                logger.info(f"Created empty scaler as fallback at {scaler_path}")
+                return True
+            
+            logger.info(f"Using numerical columns: {available_cols}")
+            
+            # Create and fit a new scaler
+            scaler = StandardScaler()
+            scaler.fit(df[available_cols])
+            
+            # Save the scaler
+            joblib.dump(scaler, scaler_path)
+            logger.info(f"New scaler created and saved to {scaler_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error creating scaler: {str(e)}")
+            logger.error(traceback.format_exc())
+            # Create a fallback scaler so the app can still run
+            try:
+                scaler = StandardScaler()
+                joblib.dump(scaler, scaler_path)
+                logger.info("Created fallback scaler due to error")
+                return True
+            except:
+                return False
+    return True
+
 # Global variable to store model file path
 MODEL_PATH = os.path.join("models", "cls_rf.pkl")
 
@@ -212,84 +290,6 @@ user_input = {
     "Stress Level (1-10)": st.sidebar.slider("Stress Level (1-10)", 1, 10, 10),
     "Diet Quality (1-10)": st.sidebar.slider("Diet Quality (1-10)", 1, 10, 9)
 }
-
-# Function to download file if it doesn't exist
-def download_file(file_name, url, target_dir=""):
-    target_path = os.path.join(target_dir, file_name) if target_dir else file_name
-    if not os.path.exists(target_path):
-        try:
-            logger.info(f"Downloading {file_name}...")
-            # Add progress bar for large files
-            if file_name.endswith('.pkl'):
-                st.warning(f"Downloading large model file ({file_name}). This may take a few minutes...")
-            with st.spinner(f"Downloading {file_name}..."):
-                gdown.download(url, target_path, quiet=False)
-            logger.info(f"{file_name} downloaded successfully")
-            return True
-        except Exception as e:
-            logger.error(f"Error downloading {file_name}: {str(e)}")
-            st.error(f"Error downloading {file_name}: {str(e)}")
-            if "too large" in str(e).lower():
-                st.error("The file is too large for Google Drive to scan. Please try downloading it manually.")
-            return False
-    return True
-
-# Function to create scaler if it doesn't exist
-def ensure_scaler_exists():
-    scaler_path = os.path.join("preprocessed_data", "scaler.pkl")
-    if not os.path.exists(scaler_path):
-        try:
-            logger.info("Scaler not found. Creating a new scaler...")
-            # Load the dataset to fit the scaler
-            dataset_path = os.path.join("preprocessed_data", "cls_preprocessed_dataset.csv")
-            if not os.path.exists(dataset_path):
-                logger.error("Cannot create scaler: preprocessed dataset not found")
-                return False
-                
-            df = pd.read_csv(dataset_path)
-            logger.info(f"Dataset columns: {df.columns.tolist()}")
-            
-            # Define the known numerical columns from our form instead of relying on 'Q' prefix
-            numerical_cols = [
-                "Age", "Sleep Hours", "Physical Activity (hrs/week)", 
-                "Caffeine Intake (mg/day)", "Alcohol Consumption (drinks/week)", 
-                "Heart Rate (bpm during attack)", "Breathing Rate (breaths/min)", 
-                "Therapy Sessions (per month)"
-            ]
-            
-            # Filter to only include columns that actually exist in the dataset
-            available_cols = [col for col in numerical_cols if col in df.columns]
-            
-            if not available_cols:
-                logger.error(f"No numerical columns found in the dataset for scaling. Dataset columns: {df.columns.tolist()}")
-                # Create a simple scaler anyway to avoid breaking the app
-                scaler = StandardScaler()
-                joblib.dump(scaler, scaler_path)
-                logger.info(f"Created empty scaler as fallback at {scaler_path}")
-                return True
-            
-            logger.info(f"Using numerical columns: {available_cols}")
-            
-            # Create and fit a new scaler
-            scaler = StandardScaler()
-            scaler.fit(df[available_cols])
-            
-            # Save the scaler
-            joblib.dump(scaler, scaler_path)
-            logger.info(f"New scaler created and saved to {scaler_path}")
-            return True
-        except Exception as e:
-            logger.error(f"Error creating scaler: {str(e)}")
-            logger.error(traceback.format_exc())
-            # Create a fallback scaler so the app can still run
-            try:
-                scaler = StandardScaler()
-                joblib.dump(scaler, scaler_path)
-                logger.info("Created fallback scaler due to error")
-                return True
-            except:
-                return False
-    return True
 
 if st.button("Predict Anxiety Severity"):
     try:
