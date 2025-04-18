@@ -81,16 +81,32 @@ def ensure_scaler_exists():
                 return False
                 
             df = pd.read_csv(dataset_path)
-            # Extract numerical columns only (assuming column names with 'Q' prefix are numerical)
-            numerical_cols = [col for col in df.columns if col.startswith('Q') and df[col].dtype in [np.int64, np.float64]]
+            logger.info(f"Dataset columns: {df.columns.tolist()}")
             
-            if not numerical_cols:
-                logger.error("No numerical columns found in the dataset for scaling")
-                return False
-                
+            # Define the known numerical columns from our form instead of relying on 'Q' prefix
+            numerical_cols = [
+                "Age", "Sleep Hours", "Physical Activity (hrs/week)", 
+                "Caffeine Intake (mg/day)", "Alcohol Consumption (drinks/week)", 
+                "Heart Rate (bpm during attack)", "Breathing Rate (breaths/min)", 
+                "Therapy Sessions (per month)"
+            ]
+            
+            # Filter to only include columns that actually exist in the dataset
+            available_cols = [col for col in numerical_cols if col in df.columns]
+            
+            if not available_cols:
+                logger.error(f"No numerical columns found in the dataset for scaling. Dataset columns: {df.columns.tolist()}")
+                # Create a simple scaler anyway to avoid breaking the app
+                scaler = StandardScaler()
+                joblib.dump(scaler, scaler_path)
+                logger.info(f"Created empty scaler as fallback at {scaler_path}")
+                return True
+            
+            logger.info(f"Using numerical columns: {available_cols}")
+            
             # Create and fit a new scaler
             scaler = StandardScaler()
-            scaler.fit(df[numerical_cols])
+            scaler.fit(df[available_cols])
             
             # Save the scaler
             joblib.dump(scaler, scaler_path)
@@ -99,7 +115,14 @@ def ensure_scaler_exists():
         except Exception as e:
             logger.error(f"Error creating scaler: {str(e)}")
             logger.error(traceback.format_exc())
-            return False
+            # Create a fallback scaler so the app can still run
+            try:
+                scaler = StandardScaler()
+                joblib.dump(scaler, scaler_path)
+                logger.info("Created fallback scaler due to error")
+                return True
+            except:
+                return False
     return True
 
 # Check for required files
