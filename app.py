@@ -29,30 +29,44 @@ with st.expander("Debug Information", expanded=False):
     st.write(f"Working directory: {os.getcwd()}")
     st.write(f"Files in directory: {os.listdir('.')}")
 
-model_path = "model.pkl"
+# Check for model file in both root and models directory
+model_paths = [
+    "rf_classifier_model.pkl",  # Root directory
+    os.path.join("models", "rf_classifier_model.pkl")  # Models directory
+]
 
-try:
-    if not os.path.exists(model_path):
-        logger.info(f"Model file not found at {model_path}. Downloading from Google Drive...")
+model_path = None
+for path in model_paths:
+    if os.path.exists(path):
+        model_path = path
+        logger.info(f"Found model at: {path}")
+        break
+
+if model_path is None:
+    # If model not found, create models directory and download there
+    os.makedirs("models", exist_ok=True)
+    model_path = os.path.join("models", "rf_classifier_model.pkl")
+    try:
+        logger.info(f"Model file not found. Downloading to {model_path}...")
         url = "https://drive.google.com/uc?id=1_gCsceiu4m4VjxQhTci7Y534LVebKd_W"
         gdown.download(url, model_path, quiet=False)
-        logger.info("Model downloaded successfully")
-except Exception as e:
-    logger.error(f"Error downloading model: {str(e)}")
-    st.error(f"Error downloading model: {str(e)}")
-    st.stop()
+        logger.info("Random Forest model downloaded successfully")
+    except Exception as e:
+        logger.error(f"Error downloading Random Forest model: {str(e)}")
+        st.error(f"Error downloading Random Forest model: {str(e)}")
+        st.stop()
 
 @st.cache_resource
 def load_model():
     try:
-        logger.info("Loading model from file")
+        logger.info(f"Loading Random Forest model from {model_path}")
         model = joblib.load(model_path)
-        logger.info("Model loaded successfully")
+        logger.info("Random Forest model loaded successfully")
         return model
     except Exception as e:
-        logger.error(f"Error loading model: {str(e)}")
+        logger.error(f"Error loading Random Forest model: {str(e)}")
         logger.error(traceback.format_exc())
-        st.error(f"Error loading model: {str(e)}")
+        st.error(f"Error loading Random Forest model: {str(e)}")
         st.stop()
 
 model = load_model()
