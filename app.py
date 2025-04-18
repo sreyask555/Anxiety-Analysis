@@ -254,8 +254,8 @@ def create_dummy_model():
 def load_model_for_prediction():
     try:
         logger.info(f"Loading Random Forest model from {MODEL_PATH}")
-        # Use memory mapping to efficiently load large models
-        model = joblib.load(MODEL_PATH, mmap_mode='r')
+        # Try direct loading instead of memory mapping, as memory mapping may cause prediction issues
+        model = joblib.load(MODEL_PATH)
         logger.info("Random Forest model loaded successfully")
         return model
     except Exception as e:
@@ -291,15 +291,29 @@ if st.button("Predict Anxiety Severity"):
             model_type = type(model).__name__
             logger.info(f"Successfully loaded model of type: {model_type}")
             is_dummy = model_type == "RandomForestClassifier" and hasattr(model, "n_estimators") and model.n_estimators <= 1
+            
+            # Display a warning banner if using dummy model
             if is_dummy:
-                st.warning("Using a simplified model for demonstration purposes. Predictions may not be accurate.")
+                st.warning("⚠️ USING DEMO MODEL: The large prediction model couldn't be loaded. Using a simplified model that gives approximate results.", icon="⚠️")
         
         # Make prediction using the loaded model
         with st.spinner("Running prediction..."):
             try:
+                # Add detailed logging of the input
+                logger.info(f"Input data for prediction: {user_input}")
+                logger.info(f"Model type being used: {type(model).__name__}")
+                
                 # Run prediction with timeout protection
                 predicted_class = predict_anxiety(user_input, scaler, model)
-                logger.info(f"Prediction completed. Result: {predicted_class}")
+                logger.info(f"Prediction completed. Raw result: {predicted_class}")
+                
+                # Verify the result is reasonable
+                if predicted_class < 1:
+                    predicted_class = 1
+                elif predicted_class > 10:
+                    predicted_class = 10
+                
+                logger.info(f"Final adjusted prediction: {predicted_class}")
             except Exception as e:
                 logger.error(f"Error during prediction: {str(e)}")
                 st.error(f"Error during prediction: {str(e)}")
@@ -310,7 +324,13 @@ if st.button("Predict Anxiety Severity"):
                     if dummy_model is not None:
                         predicted_class = 5  # Default middle value
                         try:
-                            predicted_class = predict_anxiety(user_input, scaler, dummy_model)
+                            # Create a more varied prediction based on inputs
+                            stress = user_input.get("Stress Level (1-10)", 5)
+                            heart_rate = user_input.get("Heart Rate (bpm during attack)", 70)
+                            
+                            # Simple formula to estimate severity based on key indicators
+                            predicted_class = min(10, max(1, round((stress + (heart_rate - 60) / 10) / 2)))
+                            logger.info(f"Generated fallback prediction: {predicted_class}")
                         except:
                             pass
                     else:
@@ -329,7 +349,36 @@ if st.button("Predict Anxiety Severity"):
             logger.info("Recommendations generated successfully")
 
         st.subheader("Predicted Anxiety Severity:")
-        st.write(f"Severity: {predicted_class} (Scale: 1 to 10)")
+        
+        # Create a more visually striking display of the prediction
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.markdown(f"<h1 style='font-size:48px; color:{'red' if predicted_class > 7 else 'orange' if predicted_class > 4 else 'green'};'>{predicted_class}</h1>", unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"<div style='margin-top:20px;'><b>Scale:</b> 1 (Minimal) to 10 (Severe)</div>", unsafe_allow_html=True)
+            
+            # Add a visual gauge
+            severity_gauge = """
+            <style>
+            .gauge-container {{
+                width: 100%;
+                height: 20px;
+                background-color: #f0f0f0;
+                border-radius: 10px;
+                margin-top: 10px;
+            }}
+            .gauge-fill {{
+                height: 100%;
+                width: {0}%;
+                background: linear-gradient(90deg, green, yellow, orange, red);
+                border-radius: 10px;
+            }}
+            </style>
+            <div class="gauge-container">
+                <div class="gauge-fill"></div>
+            </div>
+            """.format(predicted_class * 10)
+            st.markdown(severity_gauge, unsafe_allow_html=True)
 
         st.subheader("Recommended Lifestyle Changes:")
         if isinstance(recommendations, dict):
@@ -342,14 +391,23 @@ if st.button("Predict Anxiety Severity"):
                 for rec in recommendations[1:]:
                     st.write(f"- {rec}")
 
-        # Debug information for the prediction
+        # Add more detailed debug information for troubleshooting
         with st.expander("Prediction Details", expanded=False):
             st.write("### Input Data")
             st.json(user_input)
             st.write("### Model Information")
             st.write(f"Model file: {model_info['path']}")
             st.write(f"Model size: {model_info['size']:.2f} MB")
+            st.write(f"Model type: {type(model).__name__}")
             st.write(f"Using fallback model: {'Yes' if is_dummy else 'No'}")
+            
+            # Add some key input values that typically affect anxiety
+            st.write("### Key Input Factors")
+            st.write(f"Stress Level: {user_input.get('Stress Level (1-10)', 'N/A')}")
+            st.write(f"Heart Rate: {user_input.get('Heart Rate (bpm during attack)', 'N/A')}")
+            st.write(f"Sleep Hours: {user_input.get('Sleep Hours', 'N/A')}")
+            st.write(f"Recent Major Life Event: {'Yes' if user_input.get('Recent Major Life Event', 0) == 1 else 'No'}")
+            
             st.write(f"Prediction timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
         if user_input["Dizziness"] == 1:
