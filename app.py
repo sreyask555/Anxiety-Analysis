@@ -22,6 +22,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Silence watchdog debug logs that create noise in Streamlit
+logging.getLogger('watchdog.observers').setLevel(logging.WARNING)
+logging.getLogger('watchdog.observers.inotify_buffer').setLevel(logging.WARNING)
+
 st.title("Anxiety Severity Prediction and Lifestyle Recommendations")
 
 # Create necessary directories if they don't exist
