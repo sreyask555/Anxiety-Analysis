@@ -1,7 +1,7 @@
 import pandas as pd
 import joblib
 
-def predict_anxiety(user_input, scaler=None):
+def predict_anxiety(user_input, scaler=None, model=None):
     try:
         df = pd.read_csv("preprocessed_data/cls_preprocessed_dataset.csv")
         X = df.drop(columns=["Severity of Anxiety Attack (1-10)"])  # Feature columns only
@@ -66,15 +66,17 @@ def predict_anxiety(user_input, scaler=None):
     # Ensure the columns are in the correct order for the model
     final_input = final_input[existing_columns]  # Use only existing columns
 
-    try:
-        model = joblib.load("models/cls_rf.pkl")
-    except:
-        # Try the older filename if the new one fails
+    # If model is not provided, try to load it
+    if model is None:
         try:
-            model = joblib.load("models/rf_classifier_model.pkl")
-        except Exception as e:
-            print(f"Error loading model: {str(e)}")
-            return 5  # Return a middle value as fallback
+            model = joblib.load("models/cls_rf.pkl")
+        except:
+            # Try the older filename if the new one fails
+            try:
+                model = joblib.load("models/rf_classifier_model.pkl")
+            except Exception as e:
+                print(f"Error loading model: {str(e)}")
+                return 5  # Return a middle value as fallback
         
     try:
         prediction = model.predict(final_input)[0]

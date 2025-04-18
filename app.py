@@ -6,6 +6,7 @@ import logging
 import traceback
 import pandas as pd
 import numpy as np
+import gc
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime
 from cls_prediction import predict_anxiety
@@ -162,19 +163,29 @@ with st.spinner("Setting up the application..."):
 
 st.success("All required files are present!")
 
+# Global variable to store model file path
+MODEL_PATH = os.path.join("models", "cls_rf.pkl")
+
+# Modified load_model function to handle model access without loading it into memory at startup
 @st.cache_resource
-def load_model():
+def get_model_info():
     try:
-        model_path = os.path.join("models", "cls_rf.pkl")
-        logger.info(f"Loading Random Forest model from {model_path}")
-        model = joblib.load(model_path)
-        logger.info("Random Forest model loaded successfully")
-        return model
+        model_path = MODEL_PATH
+        model_size = os.path.getsize(model_path) / (1024 * 1024)  # Size in MB
+        logger.info(f"Model file size: {model_size:.2f} MB")
+        return {
+            "path": model_path,
+            "size": model_size,
+            "exists": True
+        }
     except Exception as e:
-        logger.error(f"Error loading Random Forest model: {str(e)}")
-        logger.error(traceback.format_exc())
-        st.error(f"Error loading Random Forest model: {str(e)}")
-        st.stop()
+        logger.error(f"Error checking model: {str(e)}")
+        return {
+            "path": MODEL_PATH,
+            "size": 0,
+            "exists": False,
+            "error": str(e)
+        }
 
 @st.cache_resource
 def load_scaler():
@@ -190,7 +201,8 @@ def load_scaler():
         st.warning("Could not load scaler. Using StandardScaler with default parameters.")
         return StandardScaler()
 
-model = load_model()
+# Get model info but don't load it yet
+model_info = get_model_info()
 scaler = load_scaler()
 
 st.sidebar.header("Enter Your Details")
@@ -220,13 +232,39 @@ user_input = {
     "Diet Quality (1-10)": st.sidebar.slider("Diet Quality (1-10)", 1, 10, 9)
 }
 
+# Modified function to load model only when needed
+def load_model_for_prediction():
+    try:
+        with st.spinner("Loading prediction model... (this may take a moment for large models)"):
+            logger.info(f"Loading Random Forest model from {MODEL_PATH}")
+            model = joblib.load(MODEL_PATH)
+            logger.info("Random Forest model loaded successfully")
+            return model
+    except Exception as e:
+        logger.error(f"Error loading Random Forest model: {str(e)}")
+        logger.error(traceback.format_exc())
+        st.error(f"Error loading Random Forest model: {str(e)}")
+        return None
+
 if st.button("Predict Anxiety Severity"):
     try:
         logger.info("Starting prediction process")
         logger.debug(f"User input: {user_input}")
         
-        predicted_class = predict_anxiety(user_input, scaler)
+        # Only load the model when the button is clicked
+        model = load_model_for_prediction()
+        if model is None:
+            st.error("Could not load the prediction model. Please try again.")
+            st.stop()
+            
+        # Make prediction using the loaded model
+        st.info("Running prediction...")
+        predicted_class = predict_anxiety(user_input, scaler, model)
         logger.info(f"Prediction completed. Result: {predicted_class}")
+        
+        # Clean up memory after prediction
+        del model
+        gc.collect()
         
         recommendations = get_recommendations(predicted_class, user_input)
         logger.info("Recommendations generated successfully")
@@ -235,17 +273,23 @@ if st.button("Predict Anxiety Severity"):
         st.write(f"Severity: {predicted_class} (Scale: 1 to 10)")
 
         st.subheader("Recommended Lifestyle Changes:")
-        if recommendations:
-            st.write(recommendations[0])
-            for rec in recommendations[1:]:
-                st.write(f"- {rec}")
+        if isinstance(recommendations, dict):
+            for category, recommendation in recommendations.items():
+                st.markdown(f"**{category}**: {recommendation}")
+        else:
+            # Handle legacy list format
+            if recommendations:
+                st.write(recommendations[0])
+                for rec in recommendations[1:]:
+                    st.write(f"- {rec}")
 
         # Debug information for the prediction
         with st.expander("Prediction Details", expanded=False):
             st.write("### Input Data")
             st.json(user_input)
             st.write("### Model Information")
-            st.write(f"Model type: {type(model).__name__}")
+            st.write(f"Model file: {model_info['path']}")
+            st.write(f"Model size: {model_info['size']:.2f} MB")
             st.write(f"Prediction timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
         if user_input["Dizziness"] == 1:
